@@ -1,4 +1,4 @@
-# skript-db
+# skript-db THIS IS A FORK ALL CREDITS TO THE ORIGINAL AUTHORS
 
  > Sensible SQL support for Skript.
 ---

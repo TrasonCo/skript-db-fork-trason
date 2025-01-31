@@ -1,4 +1,5 @@
-# skript-db THIS IS A FORK ALL CREDITS TO THE ORIGINAL AUTHORS
+# THIS IS A FORK ALL CREDITS TO THE ORIGINAL AUTHORS
+https://git.limework.net/Limework/skript-db
 
  > Sensible SQL support for Skript.
 ---

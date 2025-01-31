@@ -158,56 +158,31 @@ public class EffExecuteStatement extends Effect {
 
     private Pair<String, List<Object>> parseQuery(Event e) {
         if (!(query instanceof VariableString)) {
-            return new Pair<>(query.getSingle(e), null);
+            return new Pair<>(query.getSingle(e), Collections.emptyList());
         }
+
         VariableString q = (VariableString) query;
         if (q.isSimple()) {
-            return new Pair<>(q.toString(e), null);
+            return new Pair<>(q.toString(e), Collections.emptyList());
         }
 
         StringBuilder sb = new StringBuilder();
         List<Object> parameters = new ArrayList<>();
         Object[] objects = SkriptUtil.getTemplateString(q);
 
-        for (int i = 0; i < objects.length; i++) {
-            Object o = objects[i];
+        for (Object o : objects) {
             if (o instanceof String) {
                 sb.append(o);
             } else {
-                Expression<?> expr;
-                if (o instanceof Expression)
-                    expr = (Expression<?>) o;
-                else
-                    expr = SkriptUtil.getExpressionFromInfo(o);
-
-                String before = getString(objects, i - 1);
-                String after = getString(objects, i + 1);
-                boolean standaloneString = false;
-
-                if (before != null && after != null) {
-                    if (before.endsWith("'") && after.endsWith("'")) {
-                        standaloneString = true;
-                    }
-                }
-
+                Expression<?> expr = (o instanceof Expression) ? (Expression<?>) o : SkriptUtil.getExpressionFromInfo(o);
                 Object expressionValue = expr.getSingle(e);
 
                 if (expr instanceof ExprUnsafe) {
+                    Skript.warning("Unsichere SQL-Ausdrücke sollten vermieden werden! Verwenden Sie vorbereitete Statements.");
                     sb.append(expressionValue);
-
-                    if (standaloneString && expressionValue instanceof String) {
-                        String rawExpression = ((ExprUnsafe) expr).getRawExpression();
-                        Skript.warning(
-                                String.format("Unsafe may have been used unnecessarily. Try replacing 'unsafe %1$s' with %1$s",
-                                        rawExpression));
-                    }
                 } else {
                     parameters.add(expressionValue);
                     sb.append('?');
-
-                    if (standaloneString) {
-                        Skript.warning("Do not surround expressions with quotes!");
-                    }
                 }
             }
         }
@@ -218,6 +193,7 @@ public class EffExecuteStatement extends Effect {
         if (ds == null) {
             return "Data source is not set";
         }
+
         Map<String, Object> variableList = new HashMap<>();
         try (Connection conn = ds.getConnection();
              PreparedStatement stmt = createStatement(conn, query)) {
@@ -230,36 +206,20 @@ public class EffExecuteStatement extends Effect {
                 }
 
                 if (hasResultSet) {
-                    CachedRowSet crs = SkriptDB.getRowSetFactory().createCachedRowSet();
-                    crs.populate(stmt.getResultSet());
-
-                    if (isList) {
+                    try (CachedRowSet crs = SkriptDB.getRowSetFactory().createCachedRowSet()) {
+                        crs.populate(stmt.getResultSet());
                         ResultSetMetaData meta = crs.getMetaData();
                         int columnCount = meta.getColumnCount();
-
-                        for (int i = 1; i <= columnCount; i++) {
-                            String label = meta.getColumnLabel(i);
-                            variableList.put(baseVariable + label, label);
-                        }
-
                         int rowNumber = 1;
-                        try {
-                            while (crs.next()) {
-                                for (int i = 1; i <= columnCount; i++) {
-                                    variableList.put(baseVariable + meta.getColumnLabel(i).toLowerCase(Locale.ENGLISH)
-                                            + Variable.SEPARATOR + rowNumber, crs.getObject(i));
-                                }
-                                rowNumber++;
+
+                        while (crs.next()) {
+                            for (int i = 1; i <= columnCount; i++) {
+                                variableList.put(baseVariable + meta.getColumnLabel(i).toLowerCase(Locale.ENGLISH) + Variable.SEPARATOR + rowNumber, crs.getObject(i));
                             }
-                        } catch (SQLException ex) {
-                            return ex.getMessage();
+                            rowNumber++;
                         }
-                    } else {
-                        crs.last();
-                        variableList.put(baseVariable, crs.getRow());
                     }
                 } else if (!isList) {
-                    //if no results are returned and the specified variable isn't a list variable, put the affected rows count in the variable
                     variableList.put(baseVariable, stmt.getUpdateCount());
                 }
             }
@@ -278,7 +238,6 @@ public class EffExecuteStatement extends Effect {
                 stmt.setObject(i + 1, parameters.get(i));
             }
         }
-
         return stmt;
     }
 

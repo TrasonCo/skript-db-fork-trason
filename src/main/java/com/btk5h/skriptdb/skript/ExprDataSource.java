@@ -74,7 +74,7 @@ public class ExprDataSource extends SimpleExpression<HikariDataSource> {
             Timespan l = maxLifetime.getSingle(e);
 
             if (l != null) {
-                ds.setMaxLifetime(l.getMilliSeconds());
+                ds.setMaxLifetime(l.getAs(Timespan.TimePeriod.MILLISECOND));
             }
         }
 
@@ -100,11 +100,11 @@ public class ExprDataSource extends SimpleExpression<HikariDataSource> {
 
     @SuppressWarnings("unchecked")
     @Override
-    public boolean init(Expression<?>[] exprs, int matchedPattern, Kleenean isDelayed,
-                        SkriptParser.ParseResult parseResult) {
+    public boolean init(Expression<?>[] exprs, int matchedPattern, Kleenean isDelayed, SkriptParser.ParseResult parseResult) {
         url = (Expression<String>) exprs[0];
         maxLifetime = (Expression<Timespan>) exprs[1];
         driver = (Expression<String>) exprs[2];
         return true;
     }
+
 }
